@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HydroPB: Explorando as Bacias Hidrográficas</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; 
+            background-color: black;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* --- ESTILOS DA TELA INICIAL --- */
+       #tela-inicial {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, rgba(0, 71, 143, 0.95), rgba(0, 162, 219, 0.95)); 
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    backdrop-filter: blur(5px);
+    
+    /* NOVAS LINHAS AQUI PARA BAIXO */
+    overflow-y: auto; /* Permite rolar a tela se o conteúdo for maior que o celular */
+    transition: transform 0.4s ease, opacity 0.4s ease; /* Animação suave para quando "puxar" a tela */
+}
+
+.conteudo-inicial {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 650px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    /* NOVA LINHA AQUI */
+    margin: 20px auto; /* Dá um respiro para o conteúdo não colar nas bordas do celular na rolagem */
+}
+
+        .conteudo-inicial h1 {
+            margin-top: 0;
+            font-size: 26px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .secao {
+            margin-bottom: 20px;
+        }
+
+        .secao h2 {
+            font-size: 20px;
+            color: #b3e0ff;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .secao p {
+            line-height: 1.6;
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .secao ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .secao li {
+            margin-bottom: 12px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(0, 0, 0, 0.15);
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+
+        #btn-iniciar {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #00478f;
+            background-color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        #btn-iniciar:hover {
+            background-color: #e6f2ff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 255, 255, 0.3);
+        }
+
+        /* --- ESTILOS DO JOGO E CÂMERA --- */
+        #camera {
+            width: 100vw; 
+            height: 100vh;
+            overflow: hidden; 
+            position: relative;
+        }
+        
+        #mapa {
+            width: 5200px;
+            height: 3400px;
+            position: relative;
+            background-image: url('imagens/ChatGPT Image 6 de set. de 2026, 13_20_03.png'); 
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+        }
+
+        #nonequinho {
+            width: 30px;
+            height: 30px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            font-size: 30px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            user-select: none;
+        }
+
+        /* --- MARCADORES DAS BACIAS --- */
+        .marcador {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(0, 162, 219, 0.6);
+            border: 3px solid #00478f;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px rgba(0, 162, 219, 0.8);
+            animation: pulsar 2s infinite;
+        }
+
+        @keyframes pulsar {
+            0% { box-shadow: 0 0 0 0 rgba(0, 162, 219, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(0, 162, 219, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 162, 219, 0); }
+        }
+
+        /* --- MARCADORES DOS AÇUDES E LAGOS (📍) --- */
+        .marcador-acude {
+            position: absolute;
+            font-size: 32px;
+            transform: translate(-50%, -100%);
+            user-select: none;
+            filter: drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.6));
+            animation: flutuar 2s infinite ease-in-out;
+        }
+
+        @keyframes flutuar {
+            0%, 100% { transform: translate(-50%, -100%); }
+            50% { transform: translate(-50%, -115%); }
+        }
+
+        #btn-inspecionar {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            background-color: #ffcc00;
+            color: #000;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            z-index: 2000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+
+        #btn-inspecionar:hover {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        /* --- ESTILOS DA JANELA MODAL --- */
+        #modal-info {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 3000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-conteudo {
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            color: #333;
+        }
+
+        #fechar-modal {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 30px;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+        }
+
+        #fechar-modal:hover {
+            color: #ff0000;
+        }
+
+        #modal-imagem {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #fff;
+        }
+
+        #modal-titulo {
+            margin-top: 0;
+            color: #00478f;
+            border-bottom: 2px solid #00478f;
+            padding-bottom: 10px;
+        }
+
+        #modal-descricao p {
+            margin: 8px 0;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="tela-inicial">
+        <div class="conteudo-inicial">
+            <h1>HydroPB: Explorando os Recursos Hídricos da Paraíba</h1>
+            
+            <div class="secao">
+                <h2>Sua Importância</h2>
+                <p></p>O "HydroPB" é um projeto desenvolvido com o objetivo de apresentar, de forma interativa e educativa, os principais recursos hídricos do estado da Paraíba. A plataforma permite explorar as **bacias hidrográficas, rios e açudes**, conhecendo informações sobre sua localização, importância e características. Dessa forma, o projeto busca facilitar o acesso ao conhecimento sobre a água no estado e contribuir para a valorização e preservação dos seus recursos hídricos.
+
+            </div>
+            
+            <div class="secao">
+                <h2>Como Funciona</h2>
+                <ul>
+                    <li><span>🧍</span> <strong>Personagem:</strong> controlado pelo jogador.</li>
+                    <li><span>🟦</span> <strong>Bacias Hidrográficas:</strong> representam as principais bacias.</li>
+                    <li><span>📍</span> <strong>Açudes e Lagos:</strong> pontos com informações hídricas locais.</li>
+                    <li><span>💧</span> <strong>Informações:</strong> nome, tipo, município, capacidade e detalhes.</li>
+                </ul>
+            </div>
+            
+            <button id="btn-iniciar">Começar Exploração</button>
+        </div>
+    </div>
+
+    <button id="btn-inspecionar" style="display: none;">🔍 Inspecionar</button>
+
+    <div id="modal-info" style="display: none;">
+        <div class="modal-conteudo">
+            <span id="fechar-modal">&times;</span>
+            <h2 id="modal-titulo">Nome</h2>
+            <img id="modal-imagem" src="" alt="Imagem">
+            <div id="modal-descricao"></div>
+        </div>
+    </div>
+
+    <div id="camera">
+        <div id="mapa">
+            <div id="nonequinho">🛸</div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto Açudes e Lagos</title>
+    <style>
+        /* Estilos Base */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        /* Container do Menu no canto superior esquerdo */
+        .menu-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        /* Estilo dos Botões */
+        button {
+            padding: 10px 15px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #004494;
+        }
+
+        .sub-botoes {
+            display: none; /* Oculto por padrão */
+            flex-direction: column;
+            gap: 8px;
+            margin-left: 10px; /* Leve recuo para os sub-botões */
+        }
+
+        /* Estilos das Janelas Modais (Pop-ups) */
+        .modal {
+            display: none; /* Oculto por padrão */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: relative;
+            
+            /* --- NOVAS REGRAS PARA CRIAR A BARRA DE ROLAGEM --- */
+            max-height: 80vh; /* A janela ocupa no máximo 80% da altura da tela */
+            overflow-y: auto; /* Cria uma barra de rolagem vertical se o conteúdo for muito grande */
+        }
+        
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .close-btn:hover {
+            color: red;
+        }
+
+        /* Estilo da Tabela de Açudes */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #0056b3;
+            color: white;
+        }
+
+        /* Lista de Referências */
+        ul.referencias {
+            list-style-type: disc;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        ul.referencias a {
+            color: #0056b3;
+            text-decoration: none;
+        }
+
+        ul.referencias a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Menu Superior Esquerdo -->
+    <div class="menu-container">
+        <button id="btnPrincipal" onclick="toggleMenu()">Menu de Opções</button>
+        <div id="botoesSecundarios" class="sub-botoes">
+            <button onclick="abrirModal('modalAcudes')">Açudes e Lagos</button>
+            <button onclick="abrirModal('modalRefs')">Referências do Projeto</button>
+        </div>
+    </div>
+
+    <!-- Janela Modal: Açudes e Lagos -->
+    <div id="modalAcudes" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="fecharModal('modalAcudes')">&times;</span>
+            <h2>Catálogo de Açudes e Lagos</h2>
+            <p>Lista de reservatórios catalogados:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Município</th>
+                        <th>Nome do Açude/Lago</th>
+                        <th>Capacidade (m³)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                
+                    <tr>
+    <td>Aguiar</td>
+    <td>Açude Frutuoso II</td>
+    <td>3.517.220,00 m³</td>
+</tr>
+<tr>
+    <td>Aguiar</td>
+    <td>Açude Lancha</td>
+    <td>5.675.800,00 m³</td>
+</tr>
+<tr>
+    <td>àgua Branca</td>
+    <td>Açude Bom Jesus</td>
+    <td>14.636.457,00 m³</td>
+</tr>
+<tr>
+    <td>Alagoinha</td>
+    <td>Açude Tauá</td>
+    <td>8.573.500,00 m³</td>
+</tr>
+<tr>
+    <td>Algodão de jandaíra</td>
+    <td>Açude Algodão</td>
+    <td>1.025.425,00 m³</td>
+</tr>
+<tr>
+    <td>Alhandra</td>
+    <td>Açude Mamuaba</td>
+    <td>56.937.000,00 m³</td>
+</tr>
+<tr>
+    <td>Aparecida</td>
+    <td>Açude jaguarão</td>
+    <td>Não Informada</td>
+</tr>
+<tr>
+    <td>Araçagi</td>
+    <td>Açude Araçagi</td>
+    <td>63.289.037,00 m³</td>
+</tr>
+<tr>
+    <td>Arara</td>
+    <td>Açude Arara</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Araruna</td>
+    <td>Açude do Limão</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Areia</td>
+    <td>Açude Vaca Brava</td>
+    <td>3.783.556,00 m³</td>
+</tr>
+<tr>
+    <td>Areia</td>
+    <td>Açude Saulo Maia</td>
+    <td>9.833.615,00 m³</td>
+</tr>
+<tr>
+    <td>Areial</td>
+    <td>Açude Covão</td>
+    <td>672.260,00 m³</td>
+</tr>
+<tr>
+    <td>Aroeiras</td>
+    <td>Açude Acauã (Argemiro de Figueiredo)</td>
+    <td>253.142.247,00 m³</td>
+</tr>
+<tr>
+    <td>Assunção</td>
+    <td>Açude da Barra</td>
+    <td>Nâo informado</td>
+</tr>
+<tr>
+    <td>Bananeiras</td>
+    <td>Açude Jandaia</td>
+    <td>10.032.266,00 m³</td>
+</tr>
+<tr>
+    <td>Bananeiras</td>
+    <td>Açude Lagoa do Matias</td>
+    <td>1.239.883,00 m³</td>
+</tr>
+<tr>
+    <td>Barra de Santa Rosa</td>
+    <td>Açude Curimataú</td>
+    <td>5.989.250,00 m³</td>
+</tr>
+<tr>
+    <td>Barra de Santa Rosa</td>
+    <td>Açude Poleiros</td>
+    <td>7.933.700,00 m³</td>
+</tr>
+<tr>
+    <td>Belem do Brejo do Cruz</td>
+    <td>Açude Escondido</td>
+    <td>16.579.250,00 m³</td>
+</tr>
+<tr>
+    <td>Belem do Brejo do Cruz</td>
+    <td>Açude Baião]</td>
+    <td>39.224.628,00 m³</td>
+</tr>
+<tr>
+    <td>Belem do Brejo do Cruz</td>
+    <td>Açude Direito</td>
+    <td>Não Informada</td>
+</tr>
+<tr>
+    <td>Boa Ventura</td>
+    <td>Açude Riacho Verde</td>
+    <td>1.256.250 m³</td>
+</tr>
+<tr>
+    <td>Bom Jesus</td>
+    <td>Açude do Escurinho</td>
+    <td>não informada</td>
+</tr>
+<tr>
+    <td>Bonito de Santa Fè</td>
+    <td>Açude Bartolomeu I</td>
+    <td>17.570.556 m³</td>
+</tr>
+<tr>
+    <td>Bonito de Santa Fé</td>
+    <td>Açude</td>
+    <td>não informada</td>
+</tr>
+<tr>
+    <td>Boqueirão</td>
+    <td>Açude Epitácio Pessoa</td>
+    <td>466.525.964,00 m³</td>
+</tr>
+<tr>
+    <td>Boqueirão</td>
+    <td>Açude Epitácio Pessoa</td>
+    <td>466.525.964,00 m³</td>
+</tr>
+<tr>
+    <td>Borborema</td>
+    <td>Açude Canafístula II</td>
+    <td>4.102.626,00 m³</td>
+</tr>
+<tr>
+    <td>Brejo do cruz</td>
+    <td>Açude Santa Rosa</td>
+    <td>2.843.984,00 m³</td>
+</tr>
+<tr>
+    <td>Cachoeira dos Índios</td>
+    <td>Açude Cachoeira da Vaca</td>
+    <td>339.156,00 m³</td>
+</tr>
+<tr>
+    <td>Cajazeiras</td>
+    <td>Açude Lagoa do Arroz</td>
+    <td>80.388.537,00 m³</td>
+</tr>
+<tr>
+    <td>Cajazeiras</td>
+    <td>Açude Grande de Cajazeiras</td>
+    <td>não informado</td>
+</tr>
+<tr>
+    <td>Cajazeirinhas</td>
+    <td>Açude Parede</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Cajazeirinhas</td>
+    <td>Açude Vázea Redonda</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Camalaú</td>
+    <td>Açude Camalaú</td>
+    <td>48.107.240 m³</td>
+</tr>
+<tr>
+    <td>Campina Grande</td>
+    <td>Açude Longradouro</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Campina Grande</td>
+    <td>Açude José Rodrigues</td>
+    <td>22.332.348,00 m³</td>
+</tr>
+<tr>
+    <td>Caraúbas</td>
+    <td>Açude Campos</td>
+    <td>6.594.392 m³</td>
+</tr>
+<tr>
+    <td>Carrapateira</td>
+    <td>Açude Bom Jessus</td>
+    <td>343.800 m³</td>
+</tr>
+<tr>
+    <td>Casserengue</td>
+    <td>Açude Cacimba de Várzea</td>
+    <td>9.264.321,00 m³</td>
+</tr>
+<tr>
+    <td>Catingueira</td>
+    <td>Açude Cachoeira dos Cegos</td>
+    <td>71.887.047,00 m³</td>
+</tr>
+<tr>
+    <td>Conceição</td>
+    <td>Açude Serra Vermelha</td>
+    <td>11.801.173 m³</td>
+</tr>
+<tr>
+    <td>Conceição</td>
+    <td>Açude Video</td>
+    <td>17.570.556 m³</td>
+</tr>
+<tr>
+    <td>Conceição</td>
+    <td>Açude Condado</td>
+    <td>35.016.000 m³</td>
+</tr>
+<tr>
+    <td>Condado</td>
+    <td>Açude Engenheiro Arcoverde</td>
+    <td>36.834.375 m³</td>
+</tr>
+<tr>
+    <td>Congo</td>
+    <td>Açude Cordeiro</td>
+    <td>69.965.945 m³</td>
+</tr>
+<tr>
+    <td>Coremas</td>
+    <td>Coremas</td>
+    <td>591.646.222 m³</td>
+</tr>
+<tr>
+    <td>Coremas</td>
+    <td>Mãe dÁgua</td>
+    <td>567.999.136 m³</td>
+</tr>
+<tr>
+    <td>Cubiti</td>
+    <td>Açude Felismina Queiroz</td>
+    <td>2.060.000,00 m³</td>
+</tr>
+<tr>
+    <td>Cuité</td>
+    <td>Boqueirão do Cais</td>
+    <td>12.367.300,00 m³</td>
+</tr>
+<tr>
+    <td>Cuité</td>
+    <td>Açude Retiro</td>
+    <td>40.500.000,00 m³</td>
+</tr>
+<tr>
+    <td>Curral velho</td>
+    <td>Açude Bruscas</td>
+    <td>38.206.463 m³</td>
+</tr>
+<tr>
+    <td>Desterro</td>
+    <td>Açude Jeremias</td>
+    <td>4.658.430 m³</td>
+</tr>
+<tr>
+    <td>Desterro</td>
+    <td>Açude Coronel Jueca</td>
+    <td>6.126.875,00 m³</td>
+</tr>
+<tr>
+    <td>Diamante</td>
+    <td>Açude Gravatá</td>
+    <td>não informado</td>
+</tr>
+<tr>
+    <td>Diamante</td>
+    <td>Açude Vazente</td>
+    <td>9.091.200 m³</td>
+</tr>
+<tr>
+    <td>Emas</td>
+    <td>Açude Emas</td>
+    <td>2.013.750 m³</td>
+</tr>
+<tr>
+    <td>Fagundes</td>
+    <td>Açude Gavião</td>
+    <td>1.450.840,00 m³</td>
+</tr>
+<tr>
+    <td>Guarabira</td>
+    <td>Açude Guarabira</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Gurjão</td>
+    <td>Açude Gurjão</td>
+    <td>3.786.215,00 m³</td>
+</tr>
+<tr>
+    <td>Ibiria</td>
+    <td>Açude Piranhas</td>
+    <td>25.696.200 m³</td>
+</tr>
+<tr>
+    <td>Imaculada</td>
+    <td>Açude Albino</td>
+    <td>1.833.955,00 m³</td>
+</tr>
+<tr>
+    <td>Ingá</td>
+    <td>Açude da Sudema</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Ingá</td>
+    <td>Açude Chã dos Pereiras</td>
+    <td>1.965.600,00 m³</td>
+</tr>
+<tr>
+    <td>itaporanga</td>
+    <td>Cachoeira dos Alves</td>
+    <td>10.611.196 m³</td>
+</tr>
+<tr>
+    <td>Itaporanga</td>
+    <td>Açude Conchus</td>
+    <td>4.200.000,00 m³</td>
+</tr>
+<tr>
+    <td>Jericó</td>
+    <td>Açude Carneiro</td>
+    <td>31.285.875 m³</td>
+</tr>
+<tr>
+    <td>João Pessoa</td>
+    <td>Açude Marés</td>
+    <td>2.136.637,00 m³</td>
+</tr>
+<tr>
+    <td>Juarez Távora</td>
+    <td>Açude Brejinho</td>
+    <td>789.000,00 m³</td>
+</tr>
+<tr>
+    <td>Juru</td>
+    <td>Açude Gloria</td>
+    <td>1.349.980 m³</td>
+</tr>
+<tr>
+    <td>Juru</td>
+    <td>Açude Timbaúba</td>
+    <td>15.438.572 m³</td>
+</tr>
+<tr>
+    <td>Lagoa</td>
+    <td>Açude Pai João</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Lagoa Grande</td>
+    <td>Açude Pitombeira</td>
+    <td>não Informado</td>
+</tr>
+<tr>
+    <td>Lagoa Nova</td>
+    <td>Açude Nova Camará</td>
+    <td>26.581.614,00 m³</td>
+</tr>
+<tr>
+    <td>Lastro</td>
+    <td>Açude Roça Nova</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Livramento</td>
+    <td>Açude Livramento (Russos)</td>
+    <td>2.432.420,00 m³</td>
+</tr>
+<tr>
+    <td>Livramento</td>
+    <td>Açude Verde</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Mãe d'água</td>
+    <td>Açude Capoeira</td>
+    <td>53.450.000,00 m³</td>
+</tr>
+<tr>
+    <td>Malta</td>
+    <td>Açude da Pedra</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Mamanguape</td>
+    <td>Açude Jangada</td>
+    <td>470.000,00 m³</td>
+</tr>
+<tr>
+    <td>Manaira</td>
+    <td>Açude Catolé</td>
+    <td>10.500.000 m³</td>
+</tr>
+<tr>
+    <td>Mari</td>
+    <td>Açude Olho dÁgua</td>
+    <td>868.320,00 m³</td>
+</tr>
+<tr>
+    <td>Massaranduba</td>
+    <td>Açude Sindô Ribeiro</td>
+    <td>3.022.715,00 m³</td>
+</tr>
+<tr>
+    <td>Massaranduba</td>
+    <td>Açude Massaranduba</td>
+    <td>604.390,00 m³</td>
+</tr>
+<tr>
+    <td>Matureiá</td>
+    <td>Açude Riacho das Moças</td>
+    <td>6.413.411,00 m³</td>
+</tr>
+<tr>
+    <td>Mogeiro</td>
+    <td>Açude Mendonça</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Montadas</td>
+    <td>Açude Emídio</td>
+    <td>415.770,00 m³</td>
+</tr>
+<tr>
+    <td>Monteiro</td>
+    <td>Açude São José II</td>
+    <td>1.311.540 m³</td>
+</tr>
+<tr>
+    <td>Monteiro</td>
+    <td>Açude Poções</td>
+    <td>29.861.562 m³</td>
+</tr>
+<tr>
+    <td>Monteiro</td>
+    <td>Açude Pocinhos</td>
+    <td>6.789.305,00 m³</td>
+</tr>
+<tr>
+    <td>Monteiro</td>
+    <td>Açude Serrote</td>
+    <td>5.709.000 m³</td>
+</tr>
+<tr>
+    <td>Novo olinda</td>
+    <td>Açude Saco</td>
+    <td>97.488.089 m³</td>
+</tr>
+<tr>
+    <td>Novo olinda</td>
+    <td>Açude Minador</td>
+    <td>não informado</td>
+</tr>
+<tr>
+    <td>Olho D'Água</td>
+    <td>Jenipapeiro (Buiú)</td>
+    <td>70.757.250 m³</td>
+</tr>
+<tr>
+    <td>Olivedos</td>
+    <td>Açude Olivedos</td>
+    <td>5.875.124,00 m³</td>
+</tr>
+<tr>
+    <td>Ouro Velho</td>
+    <td>Açude Ouro Velho</td>
+    <td>1.675.800 m³</td>
+</tr>
+<tr>
+    <td>Patos</td>
+    <td>Açude Jatobá I</td>
+    <td>17.516.000 m³</td>
+</tr>
+<tr>
+    <td>Patos</td>
+    <td>Açude Farinha</td>
+    <td>25.738.500 m³</td>
+</tr>
+<tr>
+    <td>Patos</td>
+    <td>Açude Varzea Alegra</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Paulista</td>
+    <td>Açude da Cachoeira</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>piancó</td>
+    <td>Açude Estevam</td>
+    <td>não informada</td>
+</tr>
+<tr>
+    <td>Piancó</td>
+    <td>açude do governo</td>
+    <td>Não informado m³</td>
+</tr>
+<tr>
+    <td>Picui</td>
+    <td>Açude Várzea Grande</td>
+    <td>21.532.659,00 m³</td>
+</tr>
+<tr>
+    <td>Poço Dantas</td>
+    <td>Açude Posso Dantas</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Ponbal</td>
+    <td>Açude Grotão</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Prata</td>
+    <td>Açude São Paulo</td>
+    <td>8.455.500 m³</td>
+</tr>
+<tr>
+    <td>Prata</td>
+    <td>Açude Prata II</td>
+    <td>1.308.433 m³</td>
+</tr>
+<tr>
+    <td>Princesa isabel</td>
+    <td>Açude Macapá</td>
+    <td>Não Informda</td>
+</tr>
+<tr>
+    <td>Princesa isabel</td>
+    <td>Açude Jatobá II</td>
+    <td>6.487.200 m³</td>
+</tr>
+<tr>
+    <td>Puxinanã</td>
+    <td>Açude Milhã (Evaldo Gonçalves)</td>
+    <td>802.684,00 m³</td>
+</tr>
+<tr>
+    <td>Puxinanã</td>
+    <td>Açude Milhã (Evaldo Gonçalves)</td>
+    <td>802.684,00 m³</td>
+</tr>
+<tr>
+    <td>quixaba</td>
+    <td>Açude da Bola</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>riacho dos cavalos</td>
+    <td>Açude riacho dos cavalos</td>
+    <td>17.699.000,00 m³</td>
+</tr>
+<tr>
+    <td>Santa Inês</td>
+    <td>Açude Santa Inês</td>
+    <td>26.115.250 m³</td>
+</tr>
+<tr>
+    <td>Santa Luzia</td>
+    <td>Açude Santa Luzia</td>
+    <td>11.960.250 m³</td>
+</tr>
+<tr>
+    <td>Santa Teresinha</td>
+    <td>Açude Firmino Gayoso</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Santana de Mangueira</td>
+    <td>Açude Posso redondo</td>
+    <td>8.931.340 m³</td>
+</tr>
+<tr>
+    <td>Santana dos Garrotes</td>
+    <td>Açude Queimadas</td>
+    <td>15.625.338 m³</td>
+</tr>
+<tr>
+    <td>Sapé</td>
+    <td>Açude São Salvador</td>
+    <td>12.657.520,00 m³</td>
+</tr>
+<tr>
+    <td>São Bento</td>
+    <td>Açude Escondido</td>
+    <td>Naõ Informado</td>
+</tr>
+<tr>
+    <td>São Domingos do cariri</td>
+    <td>Açude São Domingos</td>
+    <td>7.760.200,00 m³</td>
+</tr>
+<tr>
+    <td>São Francisco</td>
+    <td>Açude Paraíso (Luiz Oliveira)</td>
+    <td>5.340.024 m³</td>
+</tr>
+<tr>
+    <td>São Francisco</td>
+    <td>Açude Paraíso (Luiz Oliveira)</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>São João do Cariri</td>
+    <td>Açude Namorado</td>
+    <td>2.118.980 m³</td>
+</tr>
+<tr>
+    <td>São João do Rio do Peixe</td>
+    <td>Açude Chupadouro</td>
+    <td>2.764.100 m³</td>
+</tr>
+<tr>
+    <td>São João do Rio do Peixe</td>
+    <td>Açude Pilões</td>
+    <td>7.888.854,00 m³</td>
+</tr>
+<tr>
+    <td>São José da Lagoa Tapada</td>
+    <td>Jenipapeiro</td>
+    <td>1.948.300 m³</td>
+</tr>
+<tr>
+    <td>São José de Caiana</td>
+    <td>Açude Pimenta</td>
+    <td>255.744 m³</td>
+</tr>
+<tr>
+    <td>São José de Espirinhas</td>
+    <td>Açude do Bois</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>São José de Piranhas</td>
+    <td>Açude Engenheiro Avidos</td>
+    <td>293.617.376,00 m³</td>
+</tr>
+<tr>
+    <td>São José de Piranhas</td>
+    <td>Açude São José I</td>
+    <td>3.051.125,00 m³</td>
+</tr>
+<tr>
+    <td>São José do Sabugi</td>
+    <td>Açude São José IV</td>
+    <td>554.100,00 m³</td>
+</tr>
+<tr>
+    <td>São José dos cordeiros</td>
+    <td>Açude São José III</td>
+    <td>956.000,00 m³</td>
+</tr>
+<tr>
+    <td>São Mamede</td>
+    <td>Açude São Mamede</td>
+    <td>15.791.280 m³</td>
+</tr>
+<tr>
+    <td>São Miguel</td>
+    <td>Açude Bichinho</td>
+    <td>4.574.375,00 m³</td>
+</tr>
+<tr>
+    <td>São Sebastião da Lagoa da Roça</td>
+    <td>Açude Manguape</td>
+    <td>655.375,00 m³</td>
+</tr>
+<tr>
+    <td>São Sebastião da Lagoa da Roça</td>
+    <td>Açude São Sebastião</td>
+    <td>453.075,00 m³</td>
+</tr>
+<tr>
+    <td>São Sebastião do Umbuzeiro</td>
+    <td>Açude Santo Antônio</td>
+    <td>24.424.130 m³</td>
+</tr>
+<tr>
+    <td>São Vicente do Seridó</td>
+    <td>Açude Cacinbinha</td>
+    <td>2.156.560,00 m³</td>
+</tr>
+<tr>
+    <td>Serra Branca</td>
+    <td>Açude Serra Branca II</td>
+    <td>14.042.568 m³</td>
+</tr>
+<tr>
+    <td>Serra Branca</td>
+    <td>Açude Serra Branca I</td>
+    <td>2.117.062 m³</td>
+</tr>
+<tr>
+    <td>Serra da Raiz</td>
+    <td>Açude Duas Estradas</td>
+    <td>410.260,00 m³</td>
+</tr>
+<tr>
+    <td>Serra Grande</td>
+    <td>Açude Cafundó</td>
+    <td>313.680 m³</td>
+</tr>
+<tr>
+    <td>Serra Redonda</td>
+    <td>Açude Chupadouro II</td>
+    <td>634.620,00 m³</td>
+</tr>
+<tr>
+    <td>Soledade</td>
+    <td>Açude Soledade</td>
+    <td>27.058.000,00 m³</td>
+</tr>
+<tr>
+    <td>Sousa</td>
+    <td>São Gonçalo</td>
+    <td>44.600.000 m³</td>
+</tr>
+<tr>
+    <td>Sumé</td>
+    <td>Açude Sumé</td>
+    <td>44.864.100 m³</td>
+</tr>
+<tr>
+    <td>Suspiro</td>
+    <td>Açude Suspiro</td>
+    <td>276.400,00 m³</td>
+</tr>
+<tr>
+    <td>Taperoá</td>
+    <td>Açude Taperoá II (Manoel Marcionilo)</td>
+    <td>15.148.900 m³</td>
+</tr>
+<tr>
+    <td>Taperoá</td>
+    <td>Açude Lagoa do Meio</td>
+    <td>6.647.875 m³</td>
+</tr>
+<tr>
+    <td>Taperoá</td>
+    <td>Açude Mucutu</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Tavares</td>
+    <td>Açude Tavares II</td>
+    <td>9.000.000 m³</td>
+</tr>
+<tr>
+    <td>Tavares</td>
+    <td>Açude Novo II</td>
+    <td>Não Informda</td>
+</tr>
+<tr>
+    <td>Teixeira</td>
+    <td>Açude Bastiana</td>
+    <td>1.271.560,00 m³</td>
+</tr>
+<tr>
+    <td>Teixeira</td>
+    <td>Açude Sabonete</td>
+    <td>1.952.540,00 m³</td>
+</tr>
+<tr>
+    <td>Teixeira</td>
+    <td>Açude São Francisco II</td>
+    <td>4.920.720 m³</td>
+</tr>
+<tr>
+    <td>Ternório</td>
+    <td>Açude Riacho Fundo</td>
+    <td>298.616,00 m³</td>
+</tr>
+<tr>
+    <td>Triunfo</td>
+    <td>Açude Gamela</td>
+    <td>472.926 m³</td>
+</tr>
+<tr>
+    <td>Uiraúna</td>
+    <td>Açude Capivara</td>
+    <td>37.549.827 m³</td>
+</tr>
+<tr>
+    <td>Uiraúna</td>
+    <td>Açude Arrojado</td>
+    <td>3.596.180 m³</td>
+</tr>
+<tr>
+    <td>Várzea</td>
+    <td>Açude Trapiá</td>
+    <td>Não Informado</td>
+</tr>
+<tr>
+    <td>Vieiropolis</td>
+    <td>Açude Serra Branca</td>
+    <td>não informada</td>
+</tr>
+                    <!-- Adicione mais linhas (<tr>) conforme necessário -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Janela Modal: Referências -->
+    <div id="modalRefs" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="fecharModal('modalRefs')">&times;</span>
+            <h2>Referências e Fontes</h2>
+            <p>Links dos sites utilizados na pesquisa do projeto:</p>
+            <ul class="referencias">
+                <li><a href="https://www.aesa.pb.gov.br/" target="_blank"> AESA (Agência Executiva de Gestão das Águas do Estado da Paraíba)</a></li>
+                <li><a href="https://mapcarta.com/pt/Mapa" target="_blank">Mapcarta</a></li>
+                <li><a href="https://www.ibge.gov.br/" target="_blank">IBGE - Instituto Brasileiro de Geografia e Estatística</a></li>
+                <li><a href="https://www.researchgate.net/figure/Figura-1-Bacias-hidrograficas-do-estado-da-Paraiba_fig1_282452334" target="_blank">Bacias Hidrográficas Da paraiba</a></li>
+
+                <li><a href="https://cbhpiancopiranhasacu.org.br/a-bacia/" target="_blank">Bacias Rio Pinhas</a></li>
+                <li><a href="https://www.researchgate.net/figure/Figura-3-Mapa-de-localizacao-da-bacia-do-rio-Paraiba-A-bacia-hidrografica-do-rio_fig3_292970922" target="_blank">Bacia Rio Piranhas</a></li>
+                <li><a href="https://www.researchgate.net/figure/Figura-1-Mapa-de-localizacao-da-Bacia-hidrografica-do-rio-Mamanguape-Fonte-Autor-2017_fig1_322014443" target="_blank">Bacia Rio Manguaguape</a></li>
+                <li><a href=" https://www.geografiadaparaiba.com/post/chuvas-garantem-retorno-das-%C3%A1guas-ao-rio-curimata%C3%BA-na-para%C3%ADba" target="_blank">Bacia Rio Curimatau</a></li>
+                <li><a href="https://www.aesa.pb.gov.br/conselho-comites/comites-de-bacias/litoral-sul/" target="_blank">Bacia Rio Gramame</a></li>
+                <li><a href="https://www.aesa.pb.gov.br/assets/uploads/2024/10/21001-ETP4-RP4-N-00-01.pdf" target="_blank">Bacia Rio Curimatau</a></li>
+                <li><a href="https://www.cbhparanaiba.org.br/comunicacao/noticias/696/entrega-do-prad-fortalece-gestao-ambiental-em-abadia-dos-dourados-araxa-e-pedrinopolis" target="_blank">Bacia Rio Abdaia</a></li>
+                <li><a href="http://adcon.rn.gov.br/ACERVO/IGARN/doc/DOC000000000028900.PDF" target="_blank">Bacia Rio Guaju</a></li>
+                <li><a href="http://adcon.rn.gov.br/ACERVO/IGARN/doc/DOC000000000028901.PDF" target="_blank">Bacia Rio Jacu</a></li>
+                <li><a href="https://editorarealize.com.br/editora/anais/conidis/2017/TRABALHO_EV074_MD1_SA5_ID672_02102017093951.pdf" target="_blank">Bacia Rio Miriri</a></li>
+                <li><a href="http://adcon.rn.gov.br/ACERVO/IGARN/doc/DOC000000000028905.PDF" target="_blank">Bacia Rio</a></li>
+               
+               
+               
+                <!-- Adicione mais links copiando a linha <li> acima -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Scripts JavaScript -->
+    <script>
+        // Função para mostrar/esconder os dois botões secundários
+        function toggleMenu() {
+            const menu = document.getElementById('botoesSecundarios');
+            if (menu.style.display === 'flex') {
+                menu.style.display = 'none';
+            } else {
+                menu.style.display = 'flex';
+            }
+        }
+
+        // Função para abrir uma janela modal específica
+        function abrirModal(id) {
+            document.getElementById(id).style.display = 'flex';
+        }
+
+        // Função para fechar uma janela modal específica
+        function fecharModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // Fecha a modal se o usuário clicar fora do quadro branco
+        window.onclick = function(event) {
+            const modais = document.getElementsByClassName('modal');
+            for (let i = 0; i < modais.length; i++) {
+                if (event.target === modais[i]) {
+                    modais[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
